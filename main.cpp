@@ -13,6 +13,7 @@ initialize the maximum array (which holds the maximum demand of each
 customer) using any method you find convenient.
 */
 #include <iostream>
+#include <unistd.h>
 #include "main.h"
 // include resource request algo
 // inside resource request algo, include safety algo
@@ -36,8 +37,28 @@ int allocation[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 /* the remaining need of each customer */
 int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 
+typedef struct _customer_thread_data_t {
+  int customer_num;
+} customer_thread_data_t;
+
+void * run_customer_thread(void * arg) {
+  customer_thread_data_t *data = (customer_thread_data_t *) arg;
+  int customer_num = data->customer_num;
+  int i;
+  cout << "max for customer " << customer_num << " is [";
+  for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+    cout << maximum[customer_num][i];
+    if (i + 1 != NUMBER_OF_RESOURCES)
+      cout << ", ";
+  }
+  cout << "]" << endl;
+
+  pthread_exit(0);
+}
+
 int main(int argc, char *argv[]) {
   // take command-line arguments (e.g. 10 5 7) and put into available array
+
   for (i = 1; i < argc; i++)
     available[i - 1] = atoi(argv[i]);
 
@@ -68,33 +89,60 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  cout << "Making random requests now..." << endl;
-  int customer_num = 0;
-  int request[NUMBER_OF_RESOURCES];
   srand(time(NULL));
-  for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-    request[i] = rand() % maximum[customer_num][i];
-    // request[i] = random(0, maximum[customer_num][i]);
 
-  cout << "request contains: ";
-  for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-    cout << request[i] << " ";
-  cout << endl;
+  cout << "TESTING MULTITHREAD" << endl;
+  cout << "NUMBER OF THREADS: " << NUMBER_OF_CUSTOMERS << endl;
 
-  cout << "Try to request a resource..." << endl;
-  int result = request_resources(customer_num, request);
+  pthread_t customer_threads[NUMBER_OF_CUSTOMERS];
+  customer_thread_data_t customer_data[NUMBER_OF_CUSTOMERS];
+  for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+    customer_data[i].customer_num = i;
+    pthread_create(&customer_threads[i], NULL, run_customer_thread, &customer_data[i]);
+    sleep(1);
+  }
 
-  string readable_result = "";
-  if (result == 0) {
-    readable_result = "request successful!";
+  for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+    pthread_join(customer_threads[i], NULL);
   }
-  else if (result == -1) {
-    readable_result = "request failed";
-  }
-  else {
-    readable_result = "you're doing something wrong";
-  }
-  cout << readable_result << endl;
+
+  // cout << "Making random requests now..." << endl;
+  // TODO: DECIDE WHAT HAPPENS WHEN CUSTOMER IS DONE
+    // always need to return all resources to available, but then what??
+  // 1. Change need to 0
+  // 2. Change max to 0
+  // 3. Only if iterative, 1 main process, Add another data structure, bool completed[NUMBER_OF_CUSTOMERS], init to all false, when finished set to true and then skip
+  // 4. If multithreaded, customer threads just use pthread_exit(0),
+  // and the banker thread will be waiting for all customer to finish using pthread_join()
+  // srand(time(NULL));
+  // while (need > 0)
+  // for (j = 0; customers_all_finished(); j++) {
+
+  //   int customer_num = j % NUMBER_OF_CUSTOMERS;
+  //   int request[NUMBER_OF_RESOURCES];
+  //   for (i = 0; i < NUMBER_OF_RESOURCES; i++)
+  //     request[i] = rand() % maximum[customer_num][i];
+
+  //   cout << "request contains: ";
+  //   for (i = 0; i < NUMBER_OF_RESOURCES; i++)
+  //     cout << request[i] << " ";
+  //   cout << endl;
+
+  //   cout << "Try to request a resource..." << endl;
+  //   int result = request_resources(customer_num, request);
+
+  //   string readable_result = "";
+  //   if (result == 0) {
+  //     readable_result = "request successful!";
+  //   }
+  //   else if (result == -1) {
+  //     readable_result = "request failed";
+  //   }
+  //   cout << readable_result << endl;
+
+  //   // if all done, then exit
+  // }
+
 
 
 // printing maximum

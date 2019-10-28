@@ -69,3 +69,17 @@ finish = [t, t, f]
 
 
 
+request fails due to unsafe state
+need = [
+  [3, 3],
+  [1, 1]
+]
+available = [2, 2]
+ ===
+request for 0 = [2, 2]
+ ===
+available = [0, 0]
+need = [
+  [1, 1],
+  [1, 1]
+]
