@@ -21,7 +21,7 @@ customer) using any method you find convenient.
 using namespace std;
 
 int const NUMBER_OF_CUSTOMERS = 2; // n in the textbook
-int const NUMBER_OF_RESOURCES = 2; // m in the textbook
+int const NUMBER_OF_RESOURCES = 3; // m in the textbook
 
 int i,j;
 
@@ -36,6 +36,15 @@ int allocation[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 
 /* the remaining need of each customer */
 int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
+
+bool customer_still_has_need(int customer_num) {
+  for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+    if (need[customer_num][i] > 0) {
+      return true;
+    }
+  }
+  return false;
+}
 
 typedef struct _customer_thread_data_t {
   int customer_num;
@@ -53,6 +62,55 @@ void * run_customer_thread(void * arg) {
   }
   cout << "]" << endl;
 
+  while(customer_still_has_need(customer_num)) {
+    int request[NUMBER_OF_RESOURCES];
+    for (i = 0; i < NUMBER_OF_RESOURCES; i++)
+      request[i] = rand() % (need[customer_num][i] + 1);
+
+    cout << "request for customer " << customer_num << " contains: ";
+    for (i = 0; i < NUMBER_OF_RESOURCES; i++)
+      cout << request[i] << " ";
+    cout << endl;
+
+    cout << "customer " << customer_num << " wants to request resources." << endl;
+    bank_mutex::acquire();
+    cout << "customer " << customer_num << " has acquired lock." << endl;
+
+    int result = request_resources(customer_num, request);
+
+    bank_mutex::release();
+    cout << "customer " << customer_num << " has released lock." << endl;
+
+    string readable_result = "";
+    if (result == 0) {
+      readable_result = "request successful!";
+    }
+    else if (result == -1) {
+      readable_result = "request failed";
+    }
+    cout << "customer " << customer_num << " " << readable_result << endl;
+
+    print_everything();
+
+    sleep(rand() % 10);
+  }
+
+  cout << "customer " << customer_num << " finished!" << endl;
+  print_everything();
+
+
+  cout << "customer " << customer_num << " wants to release resources." << endl;
+  bank_mutex::acquire();
+  cout << "customer " << customer_num << " has acquired lock." << endl;
+
+  release_resources(customer_num, allocation[customer_num]);
+
+  bank_mutex::release();
+  cout << "customer " << customer_num << " has released lock." << endl;
+
+
+  print_everything();
+
   pthread_exit(0);
 }
 
@@ -64,12 +122,13 @@ int main(int argc, char *argv[]) {
 
   cout << "Available array has:\n";
   for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-    cout << available[i] << "\n";
+    cout << available[i] << " ";
 
+  cout << endl;
   int temp;
   // initialize the maximum
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
-    cout << "What is the maximum resource demand for Customer " << i + 1 << "?\n";
+    cout << "What is the maximum resource demand for Customer " << i << "?\n";
     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
       cout << "Resource " << j + 1 << ": ";
       cin >> temp;
@@ -80,7 +139,7 @@ int main(int argc, char *argv[]) {
 
   // initialize the allocation
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
-    cout << "What is the current resource allocation for Customer " << i + 1 << "?\n";
+    cout << "What is the current resource allocation for Customer " << i << "?\n";
     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
       cout << "Resource " << j + 1 << ": ";
       cin >> temp;
@@ -91,78 +150,25 @@ int main(int argc, char *argv[]) {
 
   srand(time(NULL));
 
-  cout << "TESTING MULTITHREAD" << endl;
-  cout << "NUMBER OF THREADS: " << NUMBER_OF_CUSTOMERS << endl;
-
   pthread_t customer_threads[NUMBER_OF_CUSTOMERS];
   customer_thread_data_t customer_data[NUMBER_OF_CUSTOMERS];
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+    cout << "banker creating thread for customer " << i << endl;
     customer_data[i].customer_num = i;
     pthread_create(&customer_threads[i], NULL, run_customer_thread, &customer_data[i]);
-    sleep(1);
+    // sleep(1);
   }
+
+  cout << "banker waiting for customers to finish..." << endl;
 
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
     pthread_join(customer_threads[i], NULL);
   }
 
-  // cout << "Making random requests now..." << endl;
-  // TODO: DECIDE WHAT HAPPENS WHEN CUSTOMER IS DONE
-    // always need to return all resources to available, but then what??
-  // 1. Change need to 0
-  // 2. Change max to 0
-  // 3. Only if iterative, 1 main process, Add another data structure, bool completed[NUMBER_OF_CUSTOMERS], init to all false, when finished set to true and then skip
-  // 4. If multithreaded, customer threads just use pthread_exit(0),
-  // and the banker thread will be waiting for all customer to finish using pthread_join()
-  // srand(time(NULL));
-  // while (need > 0)
-  // for (j = 0; customers_all_finished(); j++) {
-
-  //   int customer_num = j % NUMBER_OF_CUSTOMERS;
-  //   int request[NUMBER_OF_RESOURCES];
-  //   for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-  //     request[i] = rand() % maximum[customer_num][i];
-
-  //   cout << "request contains: ";
-  //   for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-  //     cout << request[i] << " ";
-  //   cout << endl;
-
-  //   cout << "Try to request a resource..." << endl;
-  //   int result = request_resources(customer_num, request);
-
-  //   string readable_result = "";
-  //   if (result == 0) {
-  //     readable_result = "request successful!";
-  //   }
-  //   else if (result == -1) {
-  //     readable_result = "request failed";
-  //   }
-  //   cout << readable_result << endl;
-
-  //   // if all done, then exit
-  // }
-
-
-
-// printing maximum
-  // for (i = 0 ; i < NUMBER_OF_CUSTOMERS; i++){
-  //   for (j = 0 ; j < NUMBER_OF_RESOURCES; j++){
-  //     cout << maximum[i][j] << "\n";
-  //   }
-  // }
-
-  // for each customer
-    // start a thread
-      // thread will randomly request resources, constrained by max
-      // INSERT HERE: Request-Resource Algorithm
-      // banker main thread has to know if this will cause deadlock or is unsafe
-      // if not unsafe, give resources to thread
-      // if thread gets max resources, it exits
-      // customer will randomly release some resources
+  cout << endl << "all customers finished, banker is done for the day";
 
   /* for each customer (async, in between each time you do this, sleep a random number of seconds)
-    USE MUTEX LOCKS!!
+    USE bank_MUTEX LOCKS!!
       // alternate request or release resource
       // randomly decide how much of each resource to request or release
       TRY only request, randomly decide how much of each resource
@@ -170,10 +176,6 @@ int main(int argc, char *argv[]) {
       RELEASE only if finished
       log the result
       */
-
-  // cout << "Run safety algorithm...\n";
-  // bool result = safety_algorithm();
-  // cout << "Safety algorithm returns " << result;
 
   return 0;
 }
@@ -190,7 +192,7 @@ bool less_than_or_equals_arrays(int left_array[], int right_array[]) {
 
 bool safety_algorithm() {
   cout << "enter safety algorithm..." << endl;
-  cout << "STEP 1" << endl;
+  // cout << "STEP 1" << endl;
   // STEP 1
   int work[NUMBER_OF_RESOURCES]; // length m
   int finish[NUMBER_OF_CUSTOMERS]; // length n
@@ -214,7 +216,7 @@ bool safety_algorithm() {
   // return true;
 
   while(true) {
-    cout << "STEP 2\n";
+    // cout << "STEP 2\n";
     // STEP 2
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
       bool condition_a = !finish[i]; // finish[i] == false
@@ -240,7 +242,7 @@ bool safety_algorithm() {
       break;
     }
 
-    cout << "STEP 3\n";
+    // cout << "STEP 3\n";
     // STEP 3
     for(j = 0; j < NUMBER_OF_RESOURCES; j++) {
       work[j] += allocation[i][j];
@@ -248,7 +250,7 @@ bool safety_algorithm() {
     finish[i] = true;
   }
 
-  cout << "STEP 4\n";
+  // cout << "STEP 4\n";
   // STEP 4
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
     if (!finish[i]) {
@@ -259,13 +261,14 @@ bool safety_algorithm() {
 }
 
 int request_resources(int customer_num, int request[]) {
-  // DON'T FORGET, CHECK MUTEX LOCK (SHARED WITH release_resources)
+
   // STEP 1
   // if (!need_covers_request) {
   if (!less_than_or_equals_arrays(request, need[customer_num])) {
     cout << "Error: Customer request exceeded max claim.";
     return -1;
   }
+
 
   // STEP 2
   // if (!available_covers_request) {
@@ -277,23 +280,22 @@ int request_resources(int customer_num, int request[]) {
   // STEP 3
   allocate_resources(customer_num, request);
 
-  cout << "try allocating resources..." << endl;
-  cout << "allocation contains: ";
-  for (i = 0; i < NUMBER_OF_RESOURCES; i++)
-    cout << allocation[customer_num][i] << " ";
-  cout << endl;
+  // cout << "try allocating resources..." << endl;
+  // cout << "allocation contains: ";
+  // for (i = 0; i < NUMBER_OF_RESOURCES; i++)
+  //   cout << allocation[customer_num][i] << " ";
+  // cout << endl;
 
   // STEP 4
   bool state_is_safe = safety_algorithm();
   if (!state_is_safe) {
     cout << "Woops! Request would cause unsafe state. Rolling back..." << endl;
-    release_resources(customer_num, request);
+    deallocate_resources(customer_num, request);
+
+    print_everything();
+
     return -1;
   }
-
-  // BONUS: CHECK IF CUSTOMER HAS RECEIVED MAX RESOURCES
-  // OPTION 1: need[customer_num] is all 0
-  // OPTION 2: allocation[customer_num] == maximum[customer_num]
 
   return 0;
 }
@@ -313,13 +315,11 @@ int allocate_resources(int customer_num, int allocate[]) {
 }
 
 // STEP 4 of request_resources, but also standalone
-int release_resources(int customer_num, int release[]) {
-  // DON'T FORGET, CHECK MUTEX LOCK (SHARED WITH request_resources)
-
+int deallocate_resources(int customer_num, int deallocate[]) {
   for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
-    available[i] += release[i];
-    allocation[customer_num][i] -= release[i];
-    need[customer_num][i] += release[i];
+    available[i] += deallocate[i];
+    allocation[customer_num][i] -= deallocate[i];
+    need[customer_num][i] += deallocate[i];
   }
   // available = available + request;
   // allocation[customer_num] = allocation[customer_num] - request;
@@ -327,42 +327,52 @@ int release_resources(int customer_num, int release[]) {
   return 0;
 }
 
-/*int main(){
-if(request == true){
-  cout<<"request approved";
+int release_resources(int customer_num, int release[]) {
+  // DON'T FORGET, CHECK bank_MUTEX LOCK (SHARED WITH request_resources)
+
+  for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+    available[i] += release[i];
+    allocation[customer_num][i] -= release[i];
+  }
+  // available = available + request;
+  // allocation[customer_num] = allocation[customer_num] - request;
+  // need[customer_num] = need[customer_num] + request;
+  return 0;
 }
-else
-{
-  cout<<"request failed";
+
+
+void print_everything() {
+  cout << endl << "allocation: " << endl;
+  for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+    for (int j = 0; j < NUMBER_OF_RESOURCES; j++) {
+      cout << allocation[i][j] << " ";
+    }
+    cout << endl;
+  }
+  cout << "need: " << endl;
+  for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+    for (int j = 0; j < NUMBER_OF_RESOURCES; j++) {
+      cout << need[i][j] << " ";
+    }
+    cout << endl;
+  }
+  cout << "available: ";
+  for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+    cout << available[i] << " ";
+  }
+  cout << endl << endl;
 }
-return 0;
 
-}*/
+namespace bank_mutex {
+  bool available = true;
 
-// TEST CODE FOR INITIALIZING NEED/ALLOCATION/MAXIMUM
-// // initialize the maximum
-//   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
-//     cout << "What is the maximum resource demand for Customer " << i + 1 << "?\n";
-//     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
-//       cout << "Resource " << j + 1 << ": ";
-//       cin >> maximum[i][j];
-//     }
-//   }
+  void acquire() {
+    while (!available)
+      ;
+    available = false;
+  }
 
-//   // initialize the allocation
-//   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
-//     cout << "What is the current allocation for Customer " << i + 1 << "?\n";
-//     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
-//       cout << "Resource " << j + 1 << ": ";
-//       cin >> allocation[i][j];
-//     }
-//   }
-
-//   // initialize need
-//   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
-//     // cout << "What is the current allocation for Customer " << i + 1 << "?\n";
-//     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
-//       // cout << "Resource " << j + 1 << ": ";
-//       need[i][j] = maximum[i][j] - allocation[i][j];
-//     }
-//   }
+  void release() {
+    available = true;
+  }
+}
