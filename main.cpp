@@ -26,9 +26,11 @@ int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 bool customer_still_has_need(int customer_num) {
   for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
     if (need[customer_num][i] > 0) {
+      cout << "customer " << customer_num << " still has need..." << endl;
       return true;
     }
   }
+  cout << "customer " << customer_num << " is finished!" << endl;
   return false;
 }
 
@@ -37,12 +39,20 @@ typedef struct _customer_thread_data_t {
   int customer_num;
 } customer_thread_data_t;
 
+int sleep_time() {
+  return NUMBER_OF_RESOURCES + rand() % NUMBER_OF_CUSTOMERS;
+}
+
 void * run_customer_thread(void * arg) {
-  // wait at least 1 second for banker to initialize all customers
-  sleep((rand() % 9) + 1);
+  srand(time(NULL));
 
   customer_thread_data_t *data = (customer_thread_data_t *) arg;
   int customer_num = data->customer_num;
+
+  int s_time = sleep_time();
+  cout << "customer " << customer_num << " sleeping for " << s_time << " seconds..." << endl;
+  sleep(s_time);
+
   int i;
 
   while(customer_still_has_need(customer_num)) {
@@ -74,11 +84,11 @@ void * run_customer_thread(void * arg) {
     bank_mutex::release();
     cout << "customer " << customer_num << " has released lock." << endl;
 
-    // wait a semi-random amount of time before making another request
-    sleep((rand() % 9) + 1);
+    int s_time = sleep_time();
+    cout << "customer " << customer_num << " sleeping for " << s_time << " seconds..." << endl;
+    sleep(s_time);
   }
 
-  cout << "customer " << customer_num << " finished!" << endl;
   print_everything();
 
 
@@ -105,15 +115,13 @@ int main(int argc, char *argv[]) {
     cout << available[i] << " ";
 
   cout << endl;
-  int temp;
+
   // initialize the maximum
   for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
     cout << "What is the maximum resource demand for Customer " << i << "?\n";
     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
       cout << "Resource " << j + 1 << ": ";
-      cin >> temp;
-      maximum[i][j] = temp;
-      need[i][j] = temp;
+      cin >> maximum[i][j];
     }
   }
 
@@ -122,14 +130,11 @@ int main(int argc, char *argv[]) {
     cout << "What is the current resource allocation for Customer " << i << "?\n";
     for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
       cout << "Resource " << j + 1 << ": ";
-      cin >> temp;
-      allocation[i][j] = temp;
-      need[i][j] -= temp;
-      available[j] -= temp;
+      cin >> allocation[i][j];
+      available[j] -= allocation[i][j];
+      need[i][j] = maximum[i][j] - allocation[i][j];
     }
   }
-
-  srand(time(NULL));
 
   pthread_t customer_threads[NUMBER_OF_CUSTOMERS];
   customer_thread_data_t customer_data[NUMBER_OF_CUSTOMERS];
